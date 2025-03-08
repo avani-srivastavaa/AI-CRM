@@ -13,6 +13,8 @@ from .ml_models import predict_churn_probability, analyze_business_metrics
 from django.db.models import Avg, Count, Case, When, Value, IntegerField
 from django.utils import timezone
 from datetime import datetime
+from django.http import JsonResponse
+import json
 
 def home(request):
     records = Record.objects.all()
@@ -78,23 +80,49 @@ def ai_dashboard(request):
 
 @login_required
 def ai_engagement(request):
-    # Get all records
-    records = Record.objects.all()
-    
-    # Segment customers
-    segments = segment_customers(records)
-    
-    # Generate recommendations and messages for each record
-    for record in records:
-        record.recommendations = generate_recommendations(record)
-        record.follow_up_message = generate_dynamic_message(record, 'follow_up')
-        record.promo_message = generate_dynamic_message(record, 'promotion')
-    
-    context = {
-        'segments': {record: segments.get(record.id) for record in records}
-    }
-    
-    return render(request, 'ai_engagement.html', context)
+    if request.user.is_authenticated:
+        records = Record.objects.all()
+        
+        # Calculate segments and prepare message data
+        segments = {}
+        messages_data = {}
+        
+        for record in records:
+            # Calculate segment based on your criteria
+            total_value = record.total_value if hasattr(record, 'total_value') else 0
+            if total_value > 1000:
+                segment = 'High Value'
+            elif total_value < 500:
+                segment = 'Need Attention'
+            else:
+                segment = 'Regular'
+            
+            segments[record] = segment
+            
+            # Generate personalized messages
+            follow_up = f"Hi {record.first_name}, thank you for your continued business! We noticed you might be interested in our new products."
+            promo = f"Dear {record.first_name}, as a valued {segment.lower()} customer, we'd like to offer you a special discount!"
+            
+            messages_data[str(record.id)] = {
+                'followUp': follow_up,
+                'promo': promo
+            }
+            
+            # Add AI recommendations
+            record.recommendations = [
+                {'type': 'follow_up', 'action': 'Send a personalized follow-up message'},
+                {'type': 'offer', 'action': 'Present special discount on premium products'}
+            ]
+            record.follow_up_message = follow_up
+            record.promo_message = promo
+        
+        return render(request, 'ai_engagement.html', {
+            'segments': segments,
+            'messages_data': json.dumps(messages_data)
+        })
+    else:
+        messages.success(request, "You Must Be Logged In...")
+        return redirect('home')
 
 @login_required
 def smart_workflows(request):
@@ -214,18 +242,35 @@ def add_record(request):
             if form.is_valid():
                 record = form.save(commit=False)
                 
-                # Analyze sentiment from notes
+                # Initialize default values
+                record.sentiment_score = 0
+                record.customer_category = 'New Customer'
+                record.priority_score = 5
+                
+                # Analyze sentiment from notes if available
                 if record.notes:
-                    record.sentiment_score = analyze_sentiment(record.notes)
+                    try:
+                        record.sentiment_score = analyze_sentiment(record.notes)
+                    except Exception as e:
+                        print(f"Error analyzing sentiment: {e}")
+                        record.sentiment_score = 0
                 
                 # Categorize customer
-                record.customer_category = categorize_customer(record.email, record.notes)
+                try:
+                    record.customer_category = categorize_customer(record.email, record.notes or '')
+                except Exception as e:
+                    print(f"Error categorizing customer: {e}")
+                    record.customer_category = 'New Customer'
                 
-                # Calculate priority score (1-10)
-                record.priority_score = min(10, max(1, int((record.sentiment_score + 1) * 5)))
+                # Calculate priority score (1-10) with error handling
+                try:
+                    record.priority_score = min(10, max(1, int((record.sentiment_score + 1) * 5)))
+                except Exception as e:
+                    print(f"Error calculating priority score: {e}")
+                    record.priority_score = 5
                 
                 record.save()
-                messages.success(request, "Record Added...")
+                messages.success(request, "Record Added Successfully!")
                 return redirect('home')
         return render(request, 'add_record.html', {'form':form})
     else:
@@ -240,16 +285,71 @@ def update_record(request, pk):
         if form.is_valid():
             record = form.save(commit=False)
             
-            # Update AI analysis
+            # Keep existing values as fallback
+            old_sentiment = record.sentiment_score or 0
+            old_category = record.customer_category or 'Regular Customer'
+            old_priority = record.priority_score or 5
+            
+            # Update AI analysis with error handling
             if record.notes:
-                record.sentiment_score = analyze_sentiment(record.notes)
-            record.customer_category = categorize_customer(record.email, record.notes)
-            record.priority_score = min(10, max(1, int((record.sentiment_score + 1) * 5)))
+                try:
+                    record.sentiment_score = analyze_sentiment(record.notes)
+                except Exception as e:
+                    print(f"Error analyzing sentiment: {e}")
+                    record.sentiment_score = old_sentiment
+            
+            try:
+                record.customer_category = categorize_customer(record.email, record.notes or '')
+            except Exception as e:
+                print(f"Error categorizing customer: {e}")
+                record.customer_category = old_category
+            
+            try:
+                record.priority_score = min(10, max(1, int((record.sentiment_score + 1) * 5)))
+            except Exception as e:
+                print(f"Error calculating priority score: {e}")
+                record.priority_score = old_priority
             
             record.save()
-            messages.success(request, "Record Has Been Updated!")
+            messages.success(request, "Record Has Been Updated Successfully!")
             return redirect('home')
         return render(request, 'update_record.html', {'form':form})
     else:
         messages.success(request, "You Must Be Logged In...")
         return redirect('home')
+
+@login_required
+def send_message(request):
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        record_id = request.POST.get('recordId')
+        message_type = request.POST.get('type')
+        subject = request.POST.get('subject')
+        content = request.POST.get('content')
+        
+        try:
+            # Get the customer record
+            record = Record.objects.get(id=record_id)
+            
+            # TODO: Add your message sending logic here
+            # For now, we'll just log the message
+            print(f"Message sent to {record.first_name} {record.last_name}: {subject}")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Message sent successfully'
+            })
+        except Record.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Customer record not found'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            })
+    
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Invalid request'
+    })

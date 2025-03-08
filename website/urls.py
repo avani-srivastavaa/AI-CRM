@@ -15,4 +15,5 @@ urlpatterns = [
     path('ai_engagement/', views.ai_engagement, name='ai_engagement'),
     path('smart_workflows/', views.smart_workflows, name='smart_workflows'),
     path('analytics_dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
+    path('send_message/', views.send_message, name='send_message'),
 ]

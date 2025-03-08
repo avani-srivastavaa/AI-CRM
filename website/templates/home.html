@@ -239,6 +239,7 @@
             </div>
             <div class="modal-body">
                 <form id="messageForm">
+                    {% csrf_token %}
                     <input type="hidden" id="messageRecordId">
                     <div class="mb-3">
                         <label class="form-label">Message Type</label>
@@ -416,22 +417,47 @@ function openSendMessage(recordId) {
 
 // Send Message Function
 function sendMessage() {
-    const recordId = document.getElementById('messageRecordId').value
-    const type = document.getElementById('messageType').value
-    const subject = document.getElementById('messageSubject').value
-    const content = document.getElementById('messageContent').value
+    const recordId = document.getElementById('messageRecordId').value;
+    const type = document.getElementById('messageType').value;
+    const subject = document.getElementById('messageSubject').value;
+    const content = document.getElementById('messageContent').value;
     
-    // Add your message sending logic here
-    console.log('Sending message:', { recordId, type, subject, content })
+    // Get CSRF token
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('sendMessageModal'))
-    modal.hide()
-    
-    // Show success toast
-    const toastEl = document.querySelector('.toast')
-    const toast = new bootstrap.Toast(toastEl)
-    toast.show()
+    // Send AJAX request
+    fetch('/send_message/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: `recordId=${recordId}&type=${type}&subject=${encodeURIComponent(subject)}&content=${encodeURIComponent(content)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('sendMessageModal'));
+            modal.hide();
+            
+            // Show success toast
+            const toastEl = document.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+            
+            // Clear form
+            document.getElementById('messageSubject').value = '';
+            document.getElementById('messageContent').value = '';
+        } else {
+            alert('Error sending message: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error sending message. Please try again.');
+    });
 }
 
 // Open Workflow Modal
@@ -561,66 +587,6 @@ if (document.querySelector('.alert')) {
 }
 </script>
 
-{% else %}
-<div class="container">
-    <div class="row justify-content-center min-vh-100 align-items-center">
-        <div class="col-md-5">
-            <div class="card">
-                <div class="card-body p-4">
-                    <div class="text-center mb-4">
-                        <div class="brand-icon mx-auto mb-3">
-                            <i class="fas fa-robot fa-2x text-primary"></i>
-                        </div>
-                        <h4>Welcome Back!</h4>
-                        <p class="text-muted">Log in to your AI-Driven CRM account</p>
-                    </div>
-
-                    <form method="POST" action="{% url 'home' %}" class="needs-validation" novalidate>
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0">
-                                    <i class="fas fa-user text-muted"></i>
-                                </span>
-                                <input type="text" class="form-control border-start-0 ps-0" name="username" placeholder="Enter your username" required>
-                            </div>
-                            <div class="invalid-feedback">Please enter a valid username.</div>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label">Password</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0">
-                                    <i class="fas fa-lock text-muted"></i>
-                                </span>
-                                <input type="password" class="form-control border-start-0 ps-0" name="password" placeholder="Enter your password" required>
-                            </div>
-                            <div class="form-text mt-2">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Keep your password secure and never share it with others
-                            </div>
-                            <div class="invalid-feedback">Please enter a valid password.</div>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-sign-in-alt me-2"></i>Login
-                            </button>
-                        </div>
-                    </form>
-
-                    <div class="mt-4 text-center">
-                        <p class="mb-0">Don't have an account? 
-                            <a href="{% url 'register' %}" class="text-primary">Register now</a>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endif %}
-
 <style>
 .card {
     transition: all 0.2s ease-in-out;
@@ -703,5 +669,65 @@ if (document.querySelector('.alert')) {
     }
 }
 </style>
+
+{% else %}
+<div class="container">
+    <div class="row justify-content-center min-vh-100 align-items-center">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="brand-icon mx-auto mb-3">
+                            <i class="fas fa-robot fa-2x text-primary"></i>
+                        </div>
+                        <h4>Welcome Back!</h4>
+                        <p class="text-muted">Log in to your AI-Driven CRM account</p>
+                    </div>
+
+                    <form method="POST" action="{% url 'home' %}" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="fas fa-user text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0 ps-0" name="username" placeholder="Enter your username" required>
+                            </div>
+                            <div class="invalid-feedback">Please enter a valid username.</div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="fas fa-lock text-muted"></i>
+                                </span>
+                                <input type="password" class="form-control border-start-0 ps-0" name="password" placeholder="Enter your password" required>
+                            </div>
+                            <div class="form-text mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Keep your password secure and never share it with others
+                            </div>
+                            <div class="invalid-feedback">Please enter a valid password.</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 text-center">
+                        <p class="mb-0">Don't have an account? 
+                            <a href="{% url 'register' %}" class="text-primary">Register now</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
 
 {% endblock %}
