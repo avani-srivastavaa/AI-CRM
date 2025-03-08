@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container-fluid px-4">
+    <h1 class="mt-4">AI Analytics Dashboard</h1>
+    <div class="row mt-4">
+        <!-- Business Intelligence Metrics -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <h4 class="mb-2">Total Sales</h4>
+                    <h2 class="mb-0">${{ metrics.total_sales }}</h2>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div class="small text-white">Last 30 days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <h4 class="mb-2">Avg Ticket Value</h4>
+                    <h2 class="mb-0">${{ metrics.avg_ticket_value }}</h2>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div class="small text-white">Per transaction</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white mb-4">
+                <div class="card-body">
+                    <h4 class="mb-2">Customer Satisfaction</h4>
+                    <h2 class="mb-0">{{ metrics.customer_satisfaction }}%</h2>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div class="small text-white">Based on sentiment analysis</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <h4 class="mb-2">At-Risk Customers</h4>
+                    <h2 class="mb-0">{{ metrics.churn_risk_customers }}</h2>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <div class="small text-white">High churn probability</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Churn Risk Analysis -->
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-area me-1"></i>
+                    High-Risk Customers (Churn Prediction)
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Churn Risk</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in high_risk_customers %}
+                                <tr>
+                                    <td>{{ customer.customer.first_name }} {{ customer.customer.last_name }}</td>
+                                    <td>{{ customer.customer.email }}</td>
+                                    <td>{{ customer.customer.phone }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-danger" role="progressbar" 
+                                                style="width: {{ customer.churn_probability }}%" 
+                                                aria-valuenow="{{ customer.churn_probability }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                {{ customer.churn_probability }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">Contact</button>
+                                        <button class="btn btn-sm btn-outline-success">Offer Discount</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Insights -->
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    AI-Powered Insights
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-robot"></i> Automated Recommendations</h5>
+                        <ul class="mb-0">
+                            {% if metrics.churn_risk_customers > 0 %}
+                            <li>Consider launching a retention campaign for high-risk customers</li>
+                            {% endif %}
+                            {% if metrics.customer_satisfaction < 80 %}
+                            <li>Customer satisfaction is below target. Review recent customer feedback.</li>
+                            {% endif %}
+                            {% if metrics.avg_ticket_value < 100 %}
+                            <li>Opportunity for upselling: Average ticket value could be improved</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
